@@ -16,6 +16,9 @@ class Article_Schema {
      * Guards: first wp_head only; singular post; not feed/search/404.
      */
     public function print_schema() {
+        $general_opts = get_option('es_general', []);
+        if (empty($general_opts['enable_article_schema'])) return;
+
         static $printed = false;
         if ($printed) return;
         if (current_filter() !== 'wp_head' || is_feed() || is_search() || is_404()) return;
@@ -65,36 +68,27 @@ class Article_Schema {
              '</script>' . "\n";
     }
 
-    /** Build Organization publisher using Site Icon (512) first, fallback to custom_logo. */
+    /** Build Organization publisher using Site Icon (512). */
     private function build_publisher(): array {
         $publisher = ['@type' => 'Organization', 'name' => get_bloginfo('name')];
         if ($logo = $this->get_logo_imageobject()) $publisher['logo'] = $logo;
         return $publisher;
     }
 
-    /** Return ImageObject for Site Icon or theme custom_logo with width/height. */
+    /** Return ImageObject for Site Icon with width/height. */
     private function get_logo_imageobject(): ?array {
         if (has_site_icon()) {
             $id   = (int) get_option('site_icon');
             $url  = get_site_icon_url(512);
             $meta = $id ? wp_get_attachment_metadata($id) : [];
+            $width = (int) ($meta['width'] ?? 512);
+            $height = (int) ($meta['height'] ?? 512);
             return [
                 '@type'  => 'ImageObject',
                 'url'    => esc_url_raw($url),
-                'width'  => (int) ($meta['width']  ?? 512),
-                'height' => (int) ($meta['height'] ?? 512),
+                'width'  => $width,
+                'height' => $height,
             ];
-        }
-        $logo_id = (int) get_theme_mod('custom_logo');
-        if ($logo_id) {
-            if ($s = wp_get_attachment_image_src($logo_id, 'full')) {
-                return [
-                    '@type'  => 'ImageObject',
-                    'url'    => esc_url_raw($s[0]),
-                    'width'  => (int) $s[1],
-                    'height' => (int) $s[2],
-                ];
-            }
         }
         return null;
     }
@@ -103,7 +97,9 @@ class Article_Schema {
     private function get_headline(int $post_id): string {
         $t = get_the_title($post_id);
         if (function_exists('wp_html_excerpt')) return wp_html_excerpt($t, 110, '…');
-        return mb_strlen($t) > 110 ? mb_substr($t, 0, 110) . '…' : $t;
+        $len_func = function_exists('mb_strlen') ? 'mb_strlen' : 'strlen';
+        $substr_func = function_exists('mb_substr') ? 'mb_substr' : 'substr';
+        return $len_func($t) > 110 ? $substr_func($t, 0, 110) . '…' : $t;
     }
 
     /** Get description: excerpt or stripped content, trimmed to ≤320 chars. */
@@ -111,6 +107,8 @@ class Article_Schema {
         $d = get_the_excerpt($post_id);
         if (!$d) $d = wp_strip_all_tags(get_post_field('post_content', $post_id));
         if (function_exists('wp_html_excerpt')) return wp_html_excerpt($d, 320, '…');
-        return mb_strlen($d) > 320 ? mb_substr($d, 0, 320) . '…' : $d;
+        $len_func = function_exists('mb_strlen') ? 'mb_strlen' : 'strlen';
+        $substr_func = function_exists('mb_substr') ? 'mb_substr' : 'substr';
+        return $len_func($d) > 320 ? $substr_func($d, 0, 320) . '…' : $d;
     }
 }

@@ -122,10 +122,7 @@ class ES_Org_Schema {
         if ($aggregate_rating) {
             $org['aggregateRating'] = $aggregate_rating;
         }
-        $site_icon_url = get_site_icon_url(512);
-        $custom_logo_id = get_theme_mod('custom_logo');
-        $custom_logo_url = $custom_logo_id ? wp_get_attachment_image_url($custom_logo_id, 'full') : '';
-        $logo_url = $site_icon_url ?: $custom_logo_url;
+        $logo_url = get_site_icon_url(512);
         if ($logo_url) {
             $org['logo'] = $logo_url;
         }
